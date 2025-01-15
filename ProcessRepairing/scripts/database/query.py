@@ -1,5 +1,5 @@
 from mysql.connector import Error
-from scripts.database.connect import connect
+from database.connect import connect
 
 def query_with_fetchall(name_database):
 

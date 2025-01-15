@@ -15,7 +15,7 @@ from pm4py.objects.log.obj import Event
 from pm4py.objects.petri_net.obj import PetriNet
 from pm4py.objects.petri_net.utils import petri_utils as utils
 from pm4py.algo.conformance.tokenreplay import algorithm as token_replay
-from scripts.database import query
+from database import query
 from pm4py.algo.conformance.alignments.petri_net import algorithm as alignment
 from pm4py.algo.evaluation.replay_fitness import algorithm as replay_evaluator
 from pm4py.algo.evaluation.precision import algorithm as precision_evaluator
@@ -505,9 +505,15 @@ RETURN: -trace: an object of type Trace containing the target trace
 
 def search_trace(log, dict_trace, graph):
     trace = Trace()
+    # print(f"Current graph value: {graph}")
+    # print(f"Available keys in dict_trace: {dict_trace.keys()}")
     for t in log:
-        if t.attributes['concept:name'] == dict_trace[graph]:
-            trace = t
+        # print(f"Trace attributes: {t.attributes['concept:name']}")
+        if graph in dict_trace:
+            if t.attributes['concept:name'] == dict_trace[graph]:
+                trace = t
+        # else:
+            # print(f'{graph} is not a key in the dictionary!')
     return trace
 
 
@@ -544,21 +550,36 @@ def search_alignment(pattern, dict_trace, graph):
 
     # df = csv_importer.import_dataframe_from_path(pattern + "alignment.csv", sep=",") #pm4py-1.5.0.1
     df = pd.read_csv(pattern + "alignment.csv", sep=",")
+    print("Alignment DataFrame preview:")
+    print(df.head())  # Debugging: Show a preview of the DataFrame
 
-    for j in range(len(df)):
+    # Reset index for safety ---------- Not sure if i should do this????
+    df = df.reset_index(drop=True)
+    print("DataFrame indices after reset:", df.index)  # Debugging: Show updated indices
 
-        if df.loc[j]['Match'] == "NaN":
-            break
-        else:
+    alignment = None
+
+    for j in range(len(df)):  
+        try:
+            # Check if 'Match' column exists and if the row index is valid
+            if 'Match' not in df.columns or pd.isna(df.loc[j, 'Match']):
+                continue
+        # if df.loc[j]['Match'] == "NaN":
+        #     break
+        # else:
             trace_string = df.loc[j]['Case IDs']
             #if(type(trace_string)=='str'):
-            list_trace = trace_string.split('|')
+            list_trace = trace_string.split('|') if isinstance(trace_string, str) else []
 
-        if dict_trace[graph] in list_trace:
-            alignment = df.loc[j]['Match']
-            break
-            
-    text = alignment.split("|")
+            if dict_trace[graph] in list_trace:
+                alignment = df.loc[j]['Match']
+                break
+        except KeyError as e:
+            print(f"KeyError at index {j}: {e}")
+            continue
+
+    if (alignment):        
+        text = alignment.split("|")
 
     return text
 
