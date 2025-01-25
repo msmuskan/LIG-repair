@@ -249,7 +249,7 @@ INPUT: -subgrap: sub risultato di sub_graph()
 
 
 def write_subfile(subgrap, pattern):
-    file = open(pattern + "graphsub.g", "w")
+    file = open(pattern + "/graphsub.g", "w")
 
     for x in subgrap:
         file.write(x)
@@ -294,7 +294,7 @@ def write_graphfile(subgrap, n, pattern):
             subcopy[x + 1] = dict[subcopy[x + 1]]
             subcopy[x + 2] = dict[subcopy[x + 2]]
 
-    file = open(pattern + "graph" + n + ".g", "w")
+    file = open(pattern + "/graph" + n + ".g", "w")
 
     for x in range(len(subcopy)):
         if subcopy[x] == 'Found':
@@ -319,9 +319,9 @@ def find_instances(sub_number, graph_number, pattern):
 
     write_subfile(subgraph, pattern)
 
-    out = subprocess.Popen([pattern + 'sgiso',
-                            pattern + 'graphsub.g',
-                            pattern + 'graphs/' + graph_number + '.g'],
+    out = subprocess.Popen([pattern + '/sgiso',
+                            pattern + '/graphsub.g',
+                            pattern + '/graphs/' + graph_number + '.g'],
                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     stdout, stderr = out.communicate()
     sub = stdout.decode("utf-8")
@@ -416,10 +416,12 @@ def startend_node(graph):
         if start_edge == [] and end_edge == []:
             start_sub.append(y)
             end_sub.append(y)
-        elif y not in start_edge:
-            end_sub.append(y)
-        elif y not in end_edge:
-            start_sub.append(y)
+        # change Laura 17 January; we may have "floating nodes"
+        else:
+            if y not in start_edge:
+                end_sub.append(y)
+            if y not in end_edge:
+                start_sub.append(y)
 
     return start_sub, end_sub, sub_label
 
@@ -505,15 +507,9 @@ RETURN: -trace: an object of type Trace containing the target trace
 
 def search_trace(log, dict_trace, graph):
     trace = Trace()
-    # print(f"Current graph value: {graph}")
-    # print(f"Available keys in dict_trace: {dict_trace.keys()}")
     for t in log:
-        # print(f"Trace attributes: {t.attributes['concept:name']}")
-        if graph in dict_trace:
-            if t.attributes['concept:name'] == dict_trace[graph]:
-                trace = t
-        # else:
-            # print(f'{graph} is not a key in the dictionary!')
+        if t.attributes['concept:name'] == dict_trace[graph]:
+            trace = t
     return trace
 
 
@@ -543,43 +539,28 @@ RETURN: -text: the alignment
 
 
 def search_alignment(pattern, dict_trace, graph):
-    lines = open(pattern + "alignment.csv", "r").readlines()
+    lines = open(pattern + "/alignment.csv", "r").readlines()
 
     if lines[0][:5] != "Index":
-        open(pattern + "alignment.csv", "w").writelines(lines)
+        open(pattern + "/alignment.csv", "w").writelines(lines[2:])
 
     # df = csv_importer.import_dataframe_from_path(pattern + "alignment.csv", sep=",") #pm4py-1.5.0.1
-    df = pd.read_csv(pattern + "alignment.csv", sep=",")
-    print("Alignment DataFrame preview:")
-    print(df.head())  # Debugging: Show a preview of the DataFrame
+    df = pd.read_csv(pattern + "/alignment.csv", sep=",")
 
-    # Reset index for safety ---------- Not sure if i should do this????
-    df = df.reset_index(drop=True)
-    print("DataFrame indices after reset:", df.index)  # Debugging: Show updated indices
+    for j in range(len(df)):
 
-    alignment = None
-
-    for j in range(len(df)):  
-        try:
-            # Check if 'Match' column exists and if the row index is valid
-            if 'Match' not in df.columns or pd.isna(df.loc[j, 'Match']):
-                continue
-        # if df.loc[j]['Match'] == "NaN":
-        #     break
-        # else:
-            trace_string = df.loc[j]['Case IDs']
+        if df.iloc[j]['Match'] == "NaN":
+            break
+        else:
+            trace_string = df.iloc[j]['Case IDs']
             #if(type(trace_string)=='str'):
-            list_trace = trace_string.split('|') if isinstance(trace_string, str) else []
+            list_trace = trace_string.split('|')
 
-            if dict_trace[graph] in list_trace:
-                alignment = df.loc[j]['Match']
-                break
-        except KeyError as e:
-            print(f"KeyError at index {j}: {e}")
-            continue
-
-    if (alignment):        
-        text = alignment.split("|")
+        if dict_trace[graph] in list_trace:
+            alignment = df.iloc[j]['Match']
+            break
+            
+    text = alignment.split("|")
 
     return text
 
@@ -676,7 +657,7 @@ RETURN: -reached_marking: a dictionary with pairs 'start':'marking'
 
 
 def dirk_marking_start(dataset, start, text, trace, pattern, sub):
-    net, initial_marking, final_marking = pnml_importer.apply(pattern + dataset + '_petriNet.pnml')
+    net, initial_marking, final_marking = pnml_importer.apply(pattern + "/" + dataset +'_petriNet.pnml')
     new_trace = Trace(attributes=trace.attributes)
     im = str(initial_marking).strip('[]\'').split(':')
     i_marking = im[0]
@@ -761,7 +742,7 @@ RETURN: -reached_marking: a dictionary with pairs 'end':'marking'
 
 
 def dirk_marking_end(dataset, end, text, trace, pattern, sub):
-    net, initial_marking, final_marking = pnml_importer.apply(pattern + dataset + '_petriNet.pnml')
+    net, initial_marking, final_marking = pnml_importer.apply(pattern + "/" + dataset+ '_petriNet.pnml')
     reached_marking = []
     m = str(massimo_lista(end))
 
@@ -1849,7 +1830,7 @@ RETURN: -n_sub: the graph part containing the sub to write on the file
 
 
 def graph_sub(pattern, graph, sub_number):
-    a = split_subgraph(pattern + "graphs/" + graph + ".g")
+    a = split_subgraph(pattern + "/graphs/" + graph + ".g")
     sub = list(flatten(a))
 
     # esegue sgiso e ritorna la sub con i nodi rispetto al grafo
@@ -1889,9 +1870,9 @@ def graph_matching(pattern, graph1, graph2, sub_number):
     write_graphfile(secondgraph, "2", pattern)
 
     if graph1 == 'sub':
-        out = subprocess.Popen([pattern + 'gm',
-                                pattern + 'graphsub.g',
-                                pattern + 'graph2.g'],
+        out = subprocess.Popen([pattern + '/gm',
+                                pattern + '/graphsub.g',
+                                pattern + '/graph2.g'],
                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         stdout, stderr = out.communicate()
         sub = stdout.decode("utf-8")
@@ -2081,11 +2062,10 @@ def second_repairing(graph, graph_dict, log, dict_trace, start_name, end_name, n
 def main(pattern, dataset, numsub):
     debug = False
 
-    # Event log
-    log = xes_importer.apply(pattern + dataset + '.xes')
+    # Eventlog
+    log = xes_importer.apply(pattern + "/"+ dataset+ '.xes')
     # Model
-    net, initial_marking, final_marking = pnml_importer.apply(pattern + dataset + '_petriNet.pnml')
-    
+    net, initial_marking, final_marking = pnml_importer.apply(pattern +"/"+ dataset + '_petriNet.pnml')
     # net, initial_marking, final_marking = pnml_importer.apply(pattern + '/reti_Fahland/repaired_'+str(x)+'.pnml')
 
     # given the pattern number, return the list of subs
@@ -2103,7 +2083,7 @@ def main(pattern, dataset, numsub):
     create_subelements_file(dataset, pattern)
 
     # given a sub, returns the list of graphs in which the sub occurs
-    graph_list = list_graph_occurence(pattern + dataset + "_table2_on_file.csv", sub)
+    graph_list = list_graph_occurence(pattern + "/"+ dataset + "_table2_on_file.csv", sub)
     new_graph_list = check_graphlist(graph_list, sub, pattern)
     write_outputfile("Number of graphs in which the sub occurs: " + str(len(new_graph_list)), pattern, sub, "a")
     dict_graph = create_dict_graph(pattern, "sub", new_graph_list, sub)
@@ -2215,6 +2195,6 @@ if __name__ == '__main__':
     parser.add_argument("datasetname", type=str, help="Name of the dataset to analyse")
     parser.add_argument("numsub", type=str, help="Number of the sub with which the model is to be repaired")
     args = parser.parse_args()
-    main("../patterns_file/", args.datasetname, args.numsub) #BPI2017Denied, testBank2000NoRandomNoise
+    main("../patterns_file", args.datasetname, args.numsub) #BPI2017Denied, testBank2000NoRandomNoise
 
     #main("../patterns_file/", "fineExp", "59")
